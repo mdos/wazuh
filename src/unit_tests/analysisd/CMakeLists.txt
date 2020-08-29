@@ -80,7 +80,8 @@ LIST(APPEND analysisd_names "test_lists_list")
 LIST(APPEND analysisd_flags "-Wl,--wrap,OSMatch_FreePattern")
 
 LIST(APPEND analysisd_names "test_rule_list")
-LIST(APPEND analysisd_flags "-Wl,--wrap,OSMatch_FreePattern -Wl,--wrap,OSRegex_FreePattern -Wl,--wrap,os_remove_cdbrules")
+LIST(APPEND analysisd_flags "-Wl,--wrap,OSMatch_FreePattern -Wl,--wrap,OSRegex_FreePattern -Wl,--wrap,os_remove_cdbrules \
+                            -Wl,--wrap,_os_analysisd_add_logmsg")
 
 LIST(APPEND analysisd_names "test_eventinfo_list")
 LIST(APPEND analysisd_flags "-Wl,--wrap,Free_Eventinfo")
