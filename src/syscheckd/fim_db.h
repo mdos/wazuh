@@ -1,9 +1,16 @@
 /**
- * @file fim_sync.c
- * @brief Definition of FIM data synchronization library
+ * @file fim_db.c
+ * @brief Definition of FIM database headers
  * @date 2019-08-28
  *
- * @copyright Copyright (c) 2019 Wazuh, Inc.
+ * @copyright Copyright (c) 2019-2020 Wazuh, Inc.
+ */
+
+/*
+ * This program is a free software; you can redistribute it
+ * and/or modify it under the terms of the GNU General Public
+ * License (version 2) as published by the FSF - Free Software
+ * Foundation.
  */
 
 
@@ -105,7 +112,7 @@ void fim_db_force_commit(fdb_t *fim_sql);
 int fim_db_clean_stmt(fdb_t *fim_sql, int index);
 
 /**
- * @brief Get checksum of all entry_data.
+ * @brief Get checksum of all file_data.
  * @param fim_sql FIM database struct.
  * @param arg CTX object.
  *
@@ -150,7 +157,7 @@ char **fim_db_get_paths_from_inode(fdb_t *fim_sql, const unsigned long int inode
  * @param row_id
  * @return FIMDB_OK on success, FIMDB_ERR otherwise.
  */
-int fim_db_insert_data(fdb_t *fim_sql, fim_entry_data *entry, int *row_id);
+int fim_db_insert_data(fdb_t *fim_sql, fim_file_data *entry, int *row_id);
 
 /**
  * @brief Insert or update entry path.
@@ -161,7 +168,7 @@ int fim_db_insert_data(fdb_t *fim_sql, fim_entry_data *entry, int *row_id);
  * @param inode_id
  * @return FIMDB_OK on success, FIMDB_ERR otherwise.
  */
-int fim_db_insert_path(fdb_t *fim_sql, const char *file_path, fim_entry_data *entry, int inode_id);
+int fim_db_insert_path(fdb_t *fim_sql, const char *file_path, fim_file_data *entry, int inode_id);
 
 /**
  * @brief Insert an entry in the needed tables.
@@ -172,7 +179,7 @@ int fim_db_insert_path(fdb_t *fim_sql, const char *file_path, fim_entry_data *en
  * @param saved Entry with existing data.
  * @return FIMDB_OK on success, FIMDB_ERR otherwise.
  */
-int fim_db_insert(fdb_t *fim_sql, const char *file_path, fim_entry_data *new, fim_entry_data *saved);
+int fim_db_insert(fdb_t *fim_sql, const char *file_path, fim_file_data *new, fim_file_data *saved);
 
 /**
  * @brief Send sync message for all entries.
@@ -235,7 +242,7 @@ void fim_db_remove_path(fdb_t *fim_sql, fim_entry *entry, pthread_mutex_t *mutex
                         __attribute__((unused))void *w_evt);
 
 /**
- * @brief Get the last/first row from entry_path.
+ * @brief Get the last/first row from file_entry.
  *
  * @param mode FIM_FIRST_ROW or FIM_LAST_ROW.
  * @param path pointer of pointer where the path will be stored.
@@ -353,19 +360,19 @@ int fim_db_process_missing_entry(fdb_t *fim_sql, fim_tmp_file *file,
                                  whodata_evt * w_evt);
 
 /**
- * @brief Get count of all entries in entry_data table.
+ * @brief Get count of all entries in file_data table.
  *
  * @param fim_sql FIM database struct.
  *
- * @return Number of entries in entry_data table.
+ * @return Number of entries in file_data table.
  */
-int fim_db_get_count_entry_data(fdb_t * fim_sql);
+int fim_db_get_count_file_data(fdb_t * fim_sql);
 
 /**
- * @brief Get count of all entries in entry_path table.
+ * @brief Get count of all entries in file_entry table.
  *
  * @param fim_sql FIM database struct.
  *
- * @return Number of entries in entry_path table.
+ * @return Number of entries in file_entry table.
  */
-int fim_db_get_count_entry_path(fdb_t * fim_sql);
+int fim_db_get_count_file_entry(fdb_t * fim_sql);

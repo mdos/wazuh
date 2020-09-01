@@ -234,7 +234,7 @@ typedef struct _test_fim_db_insert_data {
     fdb_t *fim_sql;
     fim_entry *entry;
     fim_tmp_file *tmp_file;
-    fim_entry_data *saved;
+    fim_file_data *saved;
 } test_fim_db_insert_data;
 
 typedef struct __test_fim_db_ctx_s {
@@ -247,12 +247,12 @@ static int test_fim_db_setup(void **state) {
     test_data = calloc(1, sizeof(test_fim_db_insert_data));
     test_data->fim_sql = calloc(1, sizeof(fdb_t));
     test_data->entry = calloc(1, sizeof(fim_entry));
-    test_data->entry->data = calloc(1, sizeof(fim_entry_data));
+    test_data->entry->data = calloc(1, sizeof(fim_file_data));
     test_data->entry->data->inode = 200;
     test_data->entry->data->dev = 100;
     test_data->entry->path =  strdup("/test/path");
     test_data->fim_sql->transaction.last_commit = 1; //Set a time diferent than 0
-    test_data->saved = calloc(1, sizeof(fim_entry_data));
+    test_data->saved = calloc(1, sizeof(fim_file_data));
     test_data->saved->inode = 100;
     test_data->saved->dev = 100;
     *state = test_data;
@@ -449,7 +449,7 @@ void test_fim_db_init_failed_file_creation_prepare(void **state) {
     will_return(__wrap_sqlite3_open_v2, SQLITE_OK);
     will_return(__wrap_sqlite3_prepare_v2, SQLITE_ERROR);
     will_return(__wrap_sqlite3_errmsg, "ERROR MESSAGE");
-    expect_string(__wrap__merror, formatted_msg, "Error preparing statement '/* * SQL Schema for FIM database * Copyright (C) 2015-2020, Wazuh Inc. * * This program is a free software, you can redistribute it * and/or modify it under the terms of GPLv2. */CREATE TABLE IF NOT EXISTS entry_path (    path TEXT NOT NULL,    inode_id INTEGER,    mode INTEGER,    last_event INTEGER,    entry_type INTEGER,    scanned INTEGER,    options INTEGER,    checksum TEXT NOT NULL,    PRIMARY KEY(path));CREATE INDEX IF NOT EXISTS path_index ON entry_path (path);CREATE INDEX IF NOT EXISTS inode_index ON entry_path (inode_id);CREATE TABLE IF NOT EXISTS entry_data (    dev INTEGER,    inode INTEGER,    size INTEGER,    perm TEXT,    attributes TEXT,    uid INTEGER,    gid INTEGER,    user_name TEXT,    group_name TEXT,    hash_md5 TEXT,    hash_sha1 TEXT,    hash_sha256 TEXT,    mtime INTEGER,    PRIMARY KEY(dev, inode));CREATE INDEX IF NOT EXISTS dev_inode_index ON entry_data (dev, inode);': ERROR MESSAGE");
+    expect_string(__wrap__merror, formatted_msg, "Error preparing statement '/* * SQL Schema for FIM database * Copyright (C) 2015-2020, Wazuh Inc. * * This program is a free software, you can redistribute it * and/or modify it under the terms of GPLv2. */CREATE TABLE IF NOT EXISTS file_entry (    path TEXT NOT NULL,    inode_id INTEGER,    mode INTEGER,    last_event INTEGER,    entry_type INTEGER,    scanned INTEGER,    options INTEGER,    checksum TEXT NOT NULL,    PRIMARY KEY(path));CREATE INDEX IF NOT EXISTS path_index ON file_entry (path);CREATE INDEX IF NOT EXISTS inode_index ON file_entry (inode_id);CREATE TABLE IF NOT EXISTS file_data (    dev INTEGER,    inode INTEGER,    size INTEGER,    perm TEXT,    attributes TEXT,    uid INTEGER,    gid INTEGER,    user_name TEXT,    group_name TEXT,    hash_md5 TEXT,    hash_sha1 TEXT,    hash_sha256 TEXT,    mtime INTEGER,    PRIMARY KEY(dev, inode));CREATE INDEX IF NOT EXISTS dev_inode_index ON file_data (dev, inode);': ERROR MESSAGE");
     will_return(__wrap_sqlite3_close_v2, 0);
     fdb_t* fim_db;
     fim_db = fim_db_init(syscheck.database_store);
@@ -465,7 +465,7 @@ void test_fim_db_init_failed_file_creation_step(void **state) {
     will_return(__wrap_sqlite3_prepare_v2, SQLITE_OK);
     will_return(__wrap_sqlite3_step, SQLITE_ERROR);
     will_return(__wrap_sqlite3_errmsg, "ERROR MESSAGE");
-    expect_string(__wrap__merror, formatted_msg, "Error stepping statement '/* * SQL Schema for FIM database * Copyright (C) 2015-2020, Wazuh Inc. * * This program is a free software, you can redistribute it * and/or modify it under the terms of GPLv2. */CREATE TABLE IF NOT EXISTS entry_path (    path TEXT NOT NULL,    inode_id INTEGER,    mode INTEGER,    last_event INTEGER,    entry_type INTEGER,    scanned INTEGER,    options INTEGER,    checksum TEXT NOT NULL,    PRIMARY KEY(path));CREATE INDEX IF NOT EXISTS path_index ON entry_path (path);CREATE INDEX IF NOT EXISTS inode_index ON entry_path (inode_id);CREATE TABLE IF NOT EXISTS entry_data (    dev INTEGER,    inode INTEGER,    size INTEGER,    perm TEXT,    attributes TEXT,    uid INTEGER,    gid INTEGER,    user_name TEXT,    group_name TEXT,    hash_md5 TEXT,    hash_sha1 TEXT,    hash_sha256 TEXT,    mtime INTEGER,    PRIMARY KEY(dev, inode));CREATE INDEX IF NOT EXISTS dev_inode_index ON entry_data (dev, inode);': ERROR MESSAGE");
+    expect_string(__wrap__merror, formatted_msg, "Error stepping statement '/* * SQL Schema for FIM database * Copyright (C) 2015-2020, Wazuh Inc. * * This program is a free software, you can redistribute it * and/or modify it under the terms of GPLv2. */CREATE TABLE IF NOT EXISTS file_entry (    path TEXT NOT NULL,    inode_id INTEGER,    mode INTEGER,    last_event INTEGER,    entry_type INTEGER,    scanned INTEGER,    options INTEGER,    checksum TEXT NOT NULL,    PRIMARY KEY(path));CREATE INDEX IF NOT EXISTS path_index ON file_entry (path);CREATE INDEX IF NOT EXISTS inode_index ON file_entry (inode_id);CREATE TABLE IF NOT EXISTS file_data (    dev INTEGER,    inode INTEGER,    size INTEGER,    perm TEXT,    attributes TEXT,    uid INTEGER,    gid INTEGER,    user_name TEXT,    group_name TEXT,    hash_md5 TEXT,    hash_sha1 TEXT,    hash_sha256 TEXT,    mtime INTEGER,    PRIMARY KEY(dev, inode));CREATE INDEX IF NOT EXISTS dev_inode_index ON file_data (dev, inode);': ERROR MESSAGE");
     will_return(__wrap_sqlite3_finalize, 0);
     will_return(__wrap_sqlite3_close_v2, 0);
     fdb_t* fim_db;
@@ -527,9 +527,9 @@ void test_fim_db_init_failed_cache(void **state) {
     will_return(__wrap_sqlite3_prepare_v2, SQLITE_ERROR);
     will_return(__wrap_sqlite3_errmsg, "REASON GOES HERE");
 #ifndef TEST_WINAGENT
-    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO entry_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
+    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO file_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
 #else
-    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO entry_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
+    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO file_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
 #endif
     fdb_t* fim_db;
     fim_db = fim_db_init(syscheck.database_store);
@@ -547,9 +547,9 @@ void test_fim_db_init_failed_cache_memory(void **state) {
     will_return(__wrap_sqlite3_prepare_v2, SQLITE_ERROR);
     will_return(__wrap_sqlite3_errmsg, "REASON GOES HERE");
 #ifndef TEST_WINAGENT
-    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO entry_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
+    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO file_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
 #else
-    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO entry_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
+    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO file_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
 #endif
     will_return(__wrap_sqlite3_close_v2, 0);
     fdb_t* fim_db;
@@ -813,7 +813,7 @@ void test_fim_db_insert_db_full(void **state) {
     test_fim_db_insert_data *test_data = *state;
     int ret;
 
-    // Inside fim_db_get_count_entry_path
+    // Inside fim_db_get_count_file_entry
     {
         // Inside fim_db_clean_stmt
         {
@@ -1476,10 +1476,10 @@ void test_fim_db_get_path_existent(void **state) {
 /*----------fim_db_set_all_unscanned()------------------*/
 void test_fim_db_set_all_unscanned_failed(void **state) {
     test_fim_db_insert_data *test_data = *state;
-    expect_string(__wrap_sqlite3_exec, sql, "UPDATE entry_path SET scanned = 0;");
+    expect_string(__wrap_sqlite3_exec, sql, "UPDATE file_entry SET scanned = 0;");
     will_return(__wrap_sqlite3_exec, "ERROR MESSAGE");
     will_return(__wrap_sqlite3_exec, SQLITE_ERROR);
-    expect_string(__wrap__merror, formatted_msg, "Error executing simple query 'UPDATE entry_path SET scanned = 0;': ERROR MESSAGE");
+    expect_string(__wrap__merror, formatted_msg, "Error executing simple query 'UPDATE file_entry SET scanned = 0;': ERROR MESSAGE");
     wraps_fim_db_check_transaction();
     int ret = fim_db_set_all_unscanned(test_data->fim_sql);
     assert_int_equal(ret, FIMDB_ERR);
@@ -1487,7 +1487,7 @@ void test_fim_db_set_all_unscanned_failed(void **state) {
 
 void test_fim_db_set_all_unscanned_success(void **state) {
     test_fim_db_insert_data *test_data = *state;
-    wraps_fim_db_exec_simple_wquery("UPDATE entry_path SET scanned = 0;");
+    wraps_fim_db_exec_simple_wquery("UPDATE file_entry SET scanned = 0;");
     wraps_fim_db_check_transaction();
     int ret = fim_db_set_all_unscanned(test_data->fim_sql);
     assert_int_equal(ret, FIMDB_OK);
@@ -1678,9 +1678,9 @@ void test_fim_db_cache_failed(void **state) {
     will_return(__wrap_sqlite3_prepare_v2, SQLITE_ERROR);
     will_return(__wrap_sqlite3_errmsg, "REASON GOES HERE");
 #ifndef TEST_WINAGENT
-    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO entry_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
+    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO file_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
 #else
-    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO entry_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
+    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO file_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
 #endif
     int ret = fim_db_cache(test_data->fim_sql);
     assert_int_equal(ret, FIMDB_ERR);
@@ -1702,9 +1702,9 @@ void test_fim_db_close_failed(void **state) {
     will_return(__wrap_sqlite3_finalize, SQLITE_ERROR);
     will_return(__wrap_sqlite3_errmsg, "REASON GOES HERE");
 #ifndef TEST_WINAGENT
-    expect_string(__wrap__merror, formatted_msg, "Error finalizing statement 'INSERT INTO entry_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
+    expect_string(__wrap__merror, formatted_msg, "Error finalizing statement 'INSERT INTO file_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
 #else
-    expect_string(__wrap__merror, formatted_msg, "Error finalizing statement 'INSERT INTO entry_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
+    expect_string(__wrap__merror, formatted_msg, "Error finalizing statement 'INSERT INTO file_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': REASON GOES HERE");
 #endif
     will_return(__wrap_sqlite3_close_v2, SQLITE_BUSY);
     fim_db_close(test_data->fim_sql);
@@ -1788,9 +1788,9 @@ void test_fim_db_clean_stmt_reset_and_prepare_failed(void **state) {
     will_return(__wrap_sqlite3_prepare_v2, SQLITE_ERROR);
     will_return(__wrap_sqlite3_errmsg, "ERROR");
     #ifndef TEST_WINAGENT
-    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO entry_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': ERROR");
+    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO file_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': ERROR");
     #else
-    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO entry_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': ERROR");
+    expect_string(__wrap__merror, formatted_msg, "Error preparing statement 'INSERT INTO file_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);': ERROR");
     #endif
     int ret = fim_db_clean_stmt(test_data->fim_sql, 0);
     assert_int_equal(ret, FIMDB_ERR);
@@ -2547,8 +2547,8 @@ void test_fim_db_callback_calculate_checksum(void **state) {
 }
 
 /*----------------------------------------------*/
-/*----------fim_db_get_count_entry_data()------------------*/
-void test_fim_db_get_count_entry_data(void **state) {
+/*----------fim_db_get_count_file_data()------------------*/
+void test_fim_db_get_count_file_data(void **state) {
     test_fim_db_insert_data *test_data = *state;
 
     will_return_always(__wrap_sqlite3_reset, SQLITE_OK);
@@ -2558,12 +2558,12 @@ void test_fim_db_get_count_entry_data(void **state) {
     expect_value(__wrap_sqlite3_column_int, iCol, 0);
     will_return(__wrap_sqlite3_column_int, 1);
 
-    int ret = fim_db_get_count_entry_data(test_data->fim_sql);
+    int ret = fim_db_get_count_file_data(test_data->fim_sql);
 
     assert_int_equal(ret, 1);
 }
 
-void test_fim_db_get_count_entry_data_error(void **state) {
+void test_fim_db_get_count_file_data_error(void **state) {
     test_fim_db_insert_data *test_data = *state;
 
     will_return_always(__wrap_sqlite3_reset, SQLITE_OK);
@@ -2573,14 +2573,14 @@ void test_fim_db_get_count_entry_data_error(void **state) {
     will_return(__wrap_sqlite3_errmsg, "ERROR MESSAGE");
     expect_string(__wrap__merror, formatted_msg, "Step error getting count entry data: ERROR MESSAGE");
 
-    int ret = fim_db_get_count_entry_data(test_data->fim_sql);
+    int ret = fim_db_get_count_file_data(test_data->fim_sql);
 
     assert_int_equal(ret, -1);
 }
 
 /*----------------------------------------------*/
-/*----------fim_db_get_count_entry_path()------------------*/
-void test_fim_db_get_count_entry_path(void **state) {
+/*----------fim_db_get_count_file_entry()------------------*/
+void test_fim_db_get_count_file_entry(void **state) {
     test_fim_db_insert_data *test_data = *state;
 
     will_return_always(__wrap_sqlite3_reset, SQLITE_OK);
@@ -2590,12 +2590,12 @@ void test_fim_db_get_count_entry_path(void **state) {
     expect_value(__wrap_sqlite3_column_int, iCol, 0);
     will_return(__wrap_sqlite3_column_int, 1);
 
-    int ret = fim_db_get_count_entry_path(test_data->fim_sql);
+    int ret = fim_db_get_count_file_entry(test_data->fim_sql);
 
     assert_int_equal(ret, 1);
 }
 
-void test_fim_db_get_count_entry_path_error(void **state) {
+void test_fim_db_get_count_file_entry_error(void **state) {
     test_fim_db_insert_data *test_data = *state;
 
     will_return_always(__wrap_sqlite3_reset, SQLITE_OK);
@@ -2605,7 +2605,7 @@ void test_fim_db_get_count_entry_path_error(void **state) {
     will_return(__wrap_sqlite3_errmsg, "ERROR MESSAGE");
     expect_string(__wrap__merror, formatted_msg, "Step error getting count entry path: ERROR MESSAGE");
 
-    int ret = fim_db_get_count_entry_path(test_data->fim_sql);
+    int ret = fim_db_get_count_file_entry(test_data->fim_sql);
 
     assert_int_equal(ret, -1);
 }
@@ -2905,12 +2905,12 @@ int main(void) {
         cmocka_unit_test_setup_teardown(test_fim_db_callback_save_path_memory, test_fim_tmp_file_setup_memory, test_fim_tmp_file_teardown_memory),
         // fim_db_callback_calculate_checksum
         cmocka_unit_test_setup_teardown(test_fim_db_callback_calculate_checksum, setup_fim_db_with_ctx, teardown_fim_db_with_ctx),
-        // fim_db_get_count_entry_data
-        cmocka_unit_test_setup_teardown(test_fim_db_get_count_entry_data, test_fim_db_setup, test_fim_db_teardown),
-        cmocka_unit_test_setup_teardown(test_fim_db_get_count_entry_data_error, test_fim_db_setup, test_fim_db_teardown),
-        // fim_db_get_count_entry_path
-        cmocka_unit_test_setup_teardown(test_fim_db_get_count_entry_path, test_fim_db_setup, test_fim_db_teardown),
-        cmocka_unit_test_setup_teardown(test_fim_db_get_count_entry_path_error, test_fim_db_setup, test_fim_db_teardown),
+        // fim_db_get_count_file_data
+        cmocka_unit_test_setup_teardown(test_fim_db_get_count_file_data, test_fim_db_setup, test_fim_db_teardown),
+        cmocka_unit_test_setup_teardown(test_fim_db_get_count_file_data_error, test_fim_db_setup, test_fim_db_teardown),
+        // fim_db_get_count_file_entry
+        cmocka_unit_test_setup_teardown(test_fim_db_get_count_file_entry, test_fim_db_setup, test_fim_db_teardown),
+        cmocka_unit_test_setup_teardown(test_fim_db_get_count_file_entry_error, test_fim_db_setup, test_fim_db_teardown),
         // fim_db_decode_full_row
         cmocka_unit_test_teardown(test_fim_db_decode_full_row, test_fim_db_teardown),
         // fim_db_set_scanned
