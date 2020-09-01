@@ -595,7 +595,6 @@ void test_w_logtest_remove_session_fail(void **state)
 
 void test_w_logtest_remove_session_OK(void **state)
 {
-
     char * key = "test";
     w_logtest_session_t *session;
     os_calloc(1, sizeof(w_logtest_session_t), session);
@@ -644,7 +643,6 @@ void test_w_logtest_check_inactive_sessions_no_remove(void **state)
 
     will_return(__wrap_pthread_mutex_lock, 0);
     
-
     will_return(__wrap_time, NULL);
 
     will_return(__wrap_difftime, 1);

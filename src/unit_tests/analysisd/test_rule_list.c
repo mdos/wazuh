@@ -184,7 +184,6 @@ void test_os_remove_ruleinfo_OK(void **state)
     os_strdup("test_ar_command_name", ruleinfo->ar[0]->ar_cmd->name);
     os_strdup("test_ar_command_executable", ruleinfo->ar[0]->ar_cmd->executable);
     os_strdup("test_ar_command_extra_args", ruleinfo->ar[0]->ar_cmd->extra_args);
-
     os_calloc(1, sizeof(ListRule), ruleinfo->lists);
 
     os_calloc(2, sizeof(char*), ruleinfo->same_fields);
@@ -276,7 +275,6 @@ void test_os_remove_rules_list_OK(void **state)
     os_strdup("test_ar_command_name", node->ruleinfo->ar[0]->ar_cmd->name);
     os_strdup("test_ar_command_executable", node->ruleinfo->ar[0]->ar_cmd->executable);
     os_strdup("test_ar_command_extra_args", node->ruleinfo->ar[0]->ar_cmd->extra_args);
-
     os_calloc(1, sizeof(ListRule), node->ruleinfo->lists);
 
     os_calloc(2, sizeof(char*), node->ruleinfo->same_fields);

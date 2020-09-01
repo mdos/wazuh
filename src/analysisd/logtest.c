@@ -552,12 +552,10 @@ void *w_logtest_check_inactive_sessions(w_logtest_connection_t * connection) {
             w_mutex_unlock(&session->mutex);
 
             hash_node = OSHash_Next(w_logtest_sessions, &inode_it, hash_node);
-
             if (session->expired) {
                 connection->active_client -= 1;
                 w_logtest_remove_session(token_session);
             }
-
         }
 
         w_mutex_unlock(&connection->mutex_hash_table);

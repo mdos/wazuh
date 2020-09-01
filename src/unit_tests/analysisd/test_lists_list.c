@@ -59,7 +59,6 @@ void test_os_remove_cdbrules_OK(void **state)
     os_calloc(1,sizeof(ListRule), l_rule->matcher);
     os_calloc(1,sizeof(char*), l_rule->dfield);
     os_calloc(1,sizeof(char*), l_rule->filename);
-
     os_remove_cdbrules(&l_rule);
 
 }
