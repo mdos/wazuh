@@ -205,7 +205,6 @@ typedef struct fim_file_data {
     // Options
     fim_event_mode mode;
     time_t last_event;
-    unsigned int entry_type;
     unsigned long int dev;
     unsigned int scanned;
     int options;
@@ -252,7 +251,6 @@ typedef struct fim_entry {
     char *path;
     fim_file_data *data;
 } fim_entry;
-
 
 typedef struct fim_inode_data {
     int items;

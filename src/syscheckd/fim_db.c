@@ -29,14 +29,14 @@ static const char *SQL_STMT[] = {
 #else
     [FIMDB_STMT_INSERT_DATA] = "INSERT INTO file_data (dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
 #endif
-    [FIMDB_STMT_REPLACE_PATH] = "INSERT OR REPLACE INTO file_entry (path, inode_id, mode, last_event, entry_type, scanned, options, checksum) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
-    [FIMDB_STMT_GET_PATH] = "SELECT path, inode_id, mode, last_event, entry_type, scanned, options, checksum, dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime FROM file_entry INNER JOIN file_data ON path = ? AND file_data.rowid = file_entry.inode_id;",
+    [FIMDB_STMT_REPLACE_PATH] = "INSERT OR REPLACE INTO file_entry (path, inode_id, mode, last_event, scanned, options, checksum) VALUES (?, ?, ?, ?, ?, ?, ?);",
+    [FIMDB_STMT_GET_PATH] = "SELECT path, inode_id, mode, last_event, scanned, options, checksum, dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime FROM file_entry INNER JOIN file_data ON path = ? AND file_data.rowid = file_entry.inode_id;",
     [FIMDB_STMT_UPDATE_DATA] = "UPDATE file_data SET size = ?, perm = ?, attributes = ?, uid = ?, gid = ?, user_name = ?, group_name = ?, hash_md5 = ?, hash_sha1 = ?, hash_sha256 = ?, mtime = ? WHERE rowid = ?;",
-    [FIMDB_STMT_UPDATE_PATH] = "UPDATE file_entry SET inode_id = ?, mode = ?, last_event = ?, entry_type = ?, scanned = ?, options = ?, checksum = ? WHERE path = ?;",
+    [FIMDB_STMT_UPDATE_PATH] = "UPDATE file_entry SET inode_id = ?, mode = ?, last_event = ?, scanned = ?, options = ?, checksum = ? WHERE path = ?;",
     [FIMDB_STMT_GET_LAST_PATH] = "SELECT path FROM file_entry ORDER BY path DESC LIMIT 1;",
     [FIMDB_STMT_GET_FIRST_PATH] = "SELECT path FROM file_entry ORDER BY path ASC LIMIT 1;",
-    [FIMDB_STMT_GET_ALL_ENTRIES] = "SELECT path, inode_id, mode, last_event, entry_type, scanned, options, checksum, dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime FROM file_data INNER JOIN file_entry ON inode_id = file_data.rowid ORDER BY PATH ASC;",
-    [FIMDB_STMT_GET_NOT_SCANNED] = "SELECT path, inode_id, mode, last_event, entry_type, scanned, options, checksum, dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime FROM file_data INNER JOIN file_entry ON inode_id = file_data.rowid WHERE scanned = 0 ORDER BY PATH ASC;",
+    [FIMDB_STMT_GET_ALL_ENTRIES] = "SELECT path, inode_id, mode, last_event, scanned, options, checksum, dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime FROM file_data INNER JOIN file_entry ON inode_id = file_data.rowid ORDER BY PATH ASC;",
+    [FIMDB_STMT_GET_NOT_SCANNED] = "SELECT path, inode_id, mode, last_event, scanned, options, checksum, dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime FROM file_data INNER JOIN file_entry ON inode_id = file_data.rowid WHERE scanned = 0 ORDER BY PATH ASC;",
     [FIMDB_STMT_SET_ALL_UNSCANNED] = "UPDATE file_entry SET scanned = 0;",
     [FIMDB_STMT_GET_PATH_COUNT] = "SELECT count(inode_id), inode_id FROM file_entry WHERE inode_id = (select inode_id from file_entry where path = ?);",
 #ifndef WIN32
@@ -45,7 +45,7 @@ static const char *SQL_STMT[] = {
     [FIMDB_STMT_GET_DATA_ROW] = "SELECT inode_id FROM file_entry WHERE path = ?",
 #endif
     [FIMDB_STMT_GET_COUNT_RANGE] = "SELECT count(*) FROM file_entry INNER JOIN file_data ON file_data.rowid = file_entry.inode_id WHERE path BETWEEN ? and ? ORDER BY path;",
-    [FIMDB_STMT_GET_PATH_RANGE] = "SELECT path, inode_id, mode, last_event, entry_type, scanned, options, checksum, dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime FROM file_entry INNER JOIN file_data ON file_data.rowid = file_entry.inode_id WHERE path BETWEEN ? and ? ORDER BY path;",
+    [FIMDB_STMT_GET_PATH_RANGE] = "SELECT path, inode_id, mode, last_event, scanned, options, checksum, dev, inode, size, perm, attributes, uid, gid, user_name, group_name, hash_md5, hash_sha1, hash_sha256, mtime FROM file_entry INNER JOIN file_data ON file_data.rowid = file_entry.inode_id WHERE path BETWEEN ? and ? ORDER BY path;",
     [FIMDB_STMT_DELETE_PATH] = "DELETE FROM file_entry WHERE path = ?;",
     [FIMDB_STMT_DELETE_DATA] = "DELETE FROM file_data WHERE rowid = ?;",
     [FIMDB_STMT_GET_PATHS_INODE] = "SELECT path FROM file_entry INNER JOIN file_data ON file_data.rowid=file_entry.inode_id WHERE file_data.inode=? AND file_data.dev=?;",
@@ -635,23 +635,22 @@ fim_entry *fim_db_decode_full_row(sqlite3_stmt *stmt) {
     os_calloc(1, sizeof(fim_file_data), entry->data);
     entry->data->mode = (unsigned int)sqlite3_column_int(stmt, 2);
     entry->data->last_event = (time_t)sqlite3_column_int(stmt, 3);
-    entry->data->entry_type = sqlite3_column_int(stmt, 4);
-    entry->data->scanned = (time_t)sqlite3_column_int(stmt, 5);
-    entry->data->options = (time_t)sqlite3_column_int(stmt, 6);
-    strncpy(entry->data->checksum, (char *)sqlite3_column_text(stmt, 7), sizeof(os_sha1) - 1);
-    entry->data->dev = (unsigned long int)sqlite3_column_int(stmt, 8);
-    entry->data->inode = (unsigned long int)sqlite3_column_int64(stmt, 9);
-    entry->data->size = (unsigned int)sqlite3_column_int(stmt, 10);
-    sqlite_strdup((char *)sqlite3_column_text(stmt, 11), entry->data->perm);
-    sqlite_strdup((char *)sqlite3_column_text(stmt, 12), entry->data->attributes);
-    sqlite_strdup((char *)sqlite3_column_text(stmt, 13), entry->data->uid);
-    sqlite_strdup((char *)sqlite3_column_text(stmt, 14), entry->data->gid);
-    sqlite_strdup((char *)sqlite3_column_text(stmt, 15), entry->data->user_name);
-    sqlite_strdup((char *)sqlite3_column_text(stmt, 16), entry->data->group_name);
-    strncpy(entry->data->hash_md5, (char *)sqlite3_column_text(stmt, 17), sizeof(os_md5) - 1);
-    strncpy(entry->data->hash_sha1, (char *)sqlite3_column_text(stmt, 18), sizeof(os_sha1) - 1);
-    strncpy(entry->data->hash_sha256, (char *)sqlite3_column_text(stmt, 19), sizeof(os_sha256) - 1);
-    entry->data->mtime = (unsigned int)sqlite3_column_int(stmt, 20);
+    entry->data->scanned = (time_t)sqlite3_column_int(stmt, 4);
+    entry->data->options = (time_t)sqlite3_column_int(stmt, 5);
+    strncpy(entry->data->checksum, (char *)sqlite3_column_text(stmt, 6), sizeof(os_sha1) - 1);
+    entry->data->dev = (unsigned long int)sqlite3_column_int(stmt, 7);
+    entry->data->inode = (unsigned long int)sqlite3_column_int64(stmt, 8);
+    entry->data->size = (unsigned int)sqlite3_column_int(stmt, 8);
+    sqlite_strdup((char *)sqlite3_column_text(stmt, 10), entry->data->perm);
+    sqlite_strdup((char *)sqlite3_column_text(stmt, 11), entry->data->attributes);
+    sqlite_strdup((char *)sqlite3_column_text(stmt, 12), entry->data->uid);
+    sqlite_strdup((char *)sqlite3_column_text(stmt, 13), entry->data->gid);
+    sqlite_strdup((char *)sqlite3_column_text(stmt, 14), entry->data->user_name);
+    sqlite_strdup((char *)sqlite3_column_text(stmt, 15), entry->data->group_name);
+    strncpy(entry->data->hash_md5, (char *)sqlite3_column_text(stmt, 16), sizeof(os_md5) - 1);
+    strncpy(entry->data->hash_sha1, (char *)sqlite3_column_text(stmt, 17), sizeof(os_sha1) - 1);
+    strncpy(entry->data->hash_sha256, (char *)sqlite3_column_text(stmt, 18), sizeof(os_sha256) - 1);
+    entry->data->mtime = (unsigned int)sqlite3_column_int(stmt, 19);
 
     return entry;
 }
@@ -696,10 +695,9 @@ void fim_db_bind_replace_path(fdb_t *fim_sql, const char *file_path, int row_id,
     sqlite3_bind_int(fim_sql->stmt[FIMDB_STMT_REPLACE_PATH], 2, row_id);
     sqlite3_bind_int(fim_sql->stmt[FIMDB_STMT_REPLACE_PATH], 3, entry->mode);
     sqlite3_bind_int(fim_sql->stmt[FIMDB_STMT_REPLACE_PATH], 4, entry->last_event);
-    sqlite3_bind_int(fim_sql->stmt[FIMDB_STMT_REPLACE_PATH], 5, entry->entry_type);
-    sqlite3_bind_int(fim_sql->stmt[FIMDB_STMT_REPLACE_PATH], 6, entry->scanned);
-    sqlite3_bind_int(fim_sql->stmt[FIMDB_STMT_REPLACE_PATH], 7, entry->options);
-    sqlite3_bind_text(fim_sql->stmt[FIMDB_STMT_REPLACE_PATH], 8, entry->checksum, -1, NULL);
+    sqlite3_bind_int(fim_sql->stmt[FIMDB_STMT_REPLACE_PATH], 5, entry->scanned);
+    sqlite3_bind_int(fim_sql->stmt[FIMDB_STMT_REPLACE_PATH], 6, entry->options);
+    sqlite3_bind_text(fim_sql->stmt[FIMDB_STMT_REPLACE_PATH], 7, entry->checksum, -1, NULL);
 }
 
 /* FIMDB_STMT_GET_PATH, FIMDB_STMT_GET_PATH_COUNT, FIMDB_STMT_DELETE_PATH, FIMDB_STMT_GET_DATA_ROW */
@@ -1033,46 +1031,49 @@ end:
     return retval;
 }
 
-void fim_db_remove_path(fdb_t *fim_sql, fim_entry *entry, pthread_mutex_t *mutex,
-     __attribute__((unused))void *alert,
-     __attribute__((unused))void *fim_ev_mode,
-     __attribute__((unused))void *w_evt) {
+void fim_db_remove_path(fdb_t *fim_sql,
+                        fim_entry *entry,
+                        pthread_mutex_t *mutex,
+                        __attribute__((unused))void *alert,
+                        __attribute__((unused))void *fim_ev_mode,
+                        __attribute__((unused))void *w_evt) {
 
     int *send_alert = (int *) alert;
     fim_event_mode mode = (fim_event_mode) fim_ev_mode;
     int rows = 0;
     int conf;
 
-    if(entry->data->entry_type == FIM_TYPE_FILE) {
+    conf = fim_configuration_directory(entry->path, "file");
 
-        conf = fim_configuration_directory(entry->path, "file");
-
-        if(conf > -1) {
-            switch (mode) {
-            /* Don't send alert if received mode and mode in configuration aren't the same */
-            case FIM_REALTIME:
-                if (!(syscheck.opts[conf] & REALTIME_ACTIVE)) {
-                    return;     // LCOV_EXCL_LINE
-                }
-                break;
-
-            case FIM_WHODATA:
-                if (!(syscheck.opts[conf] & WHODATA_ACTIVE)) {
-                    return;     // LCOV_EXCL_LINE
-                }
-                break;
-
-            case FIM_SCHEDULED:
-                if (!(syscheck.opts[conf] & SCHEDULED_ACTIVE)) {
-                    return;     // LCOV_EXCL_LINE
-                }
-                break;
-
+    if(conf > -1) {
+        switch (mode) {
+        /* Don't send alert if received mode and mode in configuration aren't the same */
+        case FIM_REALTIME:
+            if (!(syscheck.opts[conf] & REALTIME_ACTIVE)) {
+                return;     // LCOV_EXCL_LINE
             }
-        } else {
-            mdebug2(FIM_DELETE_EVENT_PATH_NOCONF, entry->path);
-            return;
+
+            break;
+
+        case FIM_WHODATA:
+            if (!(syscheck.opts[conf] & WHODATA_ACTIVE)) {
+                return;     // LCOV_EXCL_LINE
+            }
+
+            break;
+
+        case FIM_SCHEDULED:
+            if (!(syscheck.opts[conf] & SCHEDULED_ACTIVE)) {
+                return;     // LCOV_EXCL_LINE
+            }
+
+            break;
+
         }
+    }
+    else {
+        mdebug2(FIM_DELETE_EVENT_PATH_NOCONF, entry->path);
+        return;
     }
 
     w_mutex_lock(mutex);
@@ -1118,17 +1119,15 @@ void fim_db_remove_path(fdb_t *fim_sql, fim_entry *entry, pthread_mutex_t *mutex
         cJSON * json_event      = NULL;
         char * json_formatted    = NULL;
         int pos = 0;
-        const char *FIM_ENTRY_TYPE[] = {"file", "registry"};
 
         // Obtaining the position of the directory, in @syscheck.dir, where @entry belongs
-        if (pos = fim_configuration_directory(entry->path,
-            FIM_ENTRY_TYPE[entry->data->entry_type]), pos < 0) {
+        if (pos = fim_configuration_directory(entry->path, "file"), pos < 0) {
             goto end;
         }
 
         json_event = fim_json_event(entry->path, NULL, entry->data, pos, FIM_DELETE, mode, whodata_event, NULL);
 
-        if (!strcmp(FIM_ENTRY_TYPE[entry->data->entry_type], "file") && syscheck.opts[pos] & CHECK_SEECHANGES) {
+        if (syscheck.opts[pos] & CHECK_SEECHANGES) {
             if (syscheck.disk_quota_enabled) {
                 char *full_path;
                 full_path = seechanges_get_diff_path(entry->path);

@@ -45,11 +45,6 @@ static const char *FIM_EVENT_MODE[] = {
     "whodata"
 };
 
-static const char *FIM_ENTRY_TYPE[] = {
-    "file",
-    "registry"
-};
-
 void fim_scan() {
     int it = 0;
     struct timespec start;
@@ -838,9 +833,7 @@ fim_file_data * fim_get_data(const char *file, fim_element *item) {
     data->options = item->configuration;
     data->last_event = time(NULL);
     data->scanned = 1;
-    // Set file entry type, registry or file
-    // SQLite Development
-    data->entry_type = FIM_TYPE_FILE;
+
     fim_get_checksum(data);
 
     return data;
@@ -977,22 +970,16 @@ cJSON * fim_json_event(char * file_name, fim_file_data * old_data, fim_file_data
     }
 
     char * tags = NULL;
-    if (new_data->entry_type == FIM_TYPE_FILE) {
-        if (w_evt) {
-            cJSON_AddItemToObject(data, "audit", fim_audit_json(w_evt));
-        }
 
-        tags = syscheck.tag[pos];
+    if (w_evt) {
+        cJSON_AddItemToObject(data, "audit", fim_audit_json(w_evt));
+    }
 
-        if (diff != NULL) {
-            cJSON_AddStringToObject(data, "content_changes", diff);
-        }
+    tags = syscheck.tag[pos];
+
+    if (diff != NULL) {
+        cJSON_AddStringToObject(data, "content_changes", diff);
     }
-#ifdef WIN32
-    else {
-        tags = syscheck.registry[pos].tag;
-    }
-#endif
 
     if (tags != NULL) {
         cJSON_AddStringToObject(data, "tags", tags);
@@ -1008,7 +995,7 @@ cJSON * fim_attributes_json(const fim_file_data * data) {
 
     // TODO: Read structure.
     // SQLite Development
-    cJSON_AddStringToObject(attributes, "type", FIM_ENTRY_TYPE[data->entry_type]);
+    cJSON_AddStringToObject(attributes, "type", "file");
 
     if (data->options & CHECK_SIZE) {
         cJSON_AddNumberToObject(attributes, "size", data->size);

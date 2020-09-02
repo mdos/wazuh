@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS file_entry (
     inode_id INTEGER,
     mode INTEGER,
     last_event INTEGER,
-    entry_type INTEGER,
     scanned INTEGER,
     options INTEGER,
     checksum TEXT NOT NULL,
