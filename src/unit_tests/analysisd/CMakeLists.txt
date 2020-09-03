@@ -64,7 +64,9 @@ LIST(APPEND analysisd_flags "-Wl,--wrap,ReadConfig -Wl,--wrap,_merror -Wl,--wrap
                              -Wl,--wrap,cJSON_IsString -Wl,--wrap,cJSON_DeleteItemFromObjectCaseSensitive \
                              -Wl,--wrap,cJSON_CreateObject -Wl,--wrap,cJSON_AddNumberToObject  \
                              -Wl,--wrap,cJSON_PrintUnformatted -Wl,--wrap,cJSON_Delete \
-                             -Wl,--wrap,pthread_mutex_destroy -Wl,--wrap,cJSON_IsObject")
+                             -Wl,--wrap,pthread_mutex_destroy -Wl,--wrap,cJSON_IsObject -Wl,--wrap,DecodeEvent \
+                             -Wl,--wrap,cJSON_GetStringValue -Wl,--wrap,OS_CleanMSG -Wl,--wrap,cJSON_GetObjectItem \
+                             -Wl,--wrap,OS_CheckIfRuleMatch")
 
 LIST(APPEND analysisd_names "test_logtest-config")
 LIST(APPEND analysisd_flags "-Wl,--wrap,_merror -Wl,--wrap,_mwarn -Wl,--wrap,_mdebug2 -Wl,--wrap,get_nproc -Wl,--wrap,cJSON_CreateObject \

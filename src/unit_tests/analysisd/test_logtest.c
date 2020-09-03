@@ -33,6 +33,9 @@ int w_logtest_check_input_request(cJSON * root, OSList * list_msg);
 int w_logtest_check_input_remove_session(cJSON * root, OSList * list_msg);
 char * w_logtest_process_request(char * raw_request, w_logtest_connection_t * connection);
 char * w_logtest_generate_error_response(char * msg);
+int w_logtest_preprocessing_phase(Eventinfo * lf, cJSON * request);
+void w_logtest_decoding_phase(Eventinfo * lf, w_logtest_session_t * session);
+int w_logtest_rulesmatching_phase(Eventinfo * lf, w_logtest_session_t * session, OSList * list_msg);
 
 int logtest_enabled = 1;
 
@@ -291,6 +294,18 @@ cJSON * __wrap_cJSON_GetObjectItemCaseSensitive(const cJSON * const object, cons
     return mock_type(cJSON *);
 }
 
+cJSON * __wrap_cJSON_GetObjectItem(const cJSON * const object, const char * const string) {
+    return mock_type(cJSON *);
+}
+
+char * __wrap_cJSON_GetStringValue(cJSON *item) {
+    return mock_type(char *);
+}
+
+int __wrap_OS_CleanMSG(char *msg, Eventinfo *lf) {
+    return mock_type(int);
+}
+
 cJSON_bool __wrap_cJSON_IsNumber(const cJSON * const item) {
     return mock_type(cJSON_bool);
 }
@@ -369,6 +384,18 @@ int __wrap_wm_strcat(char **str1, const char *str2, char sep) {
     check_expected(str2);
     return mock_type(int);
 }
+
+void __wrap_DecodeEvent(struct _Eventinfo *lf, OSHash *rules_hash, regex_matching *decoder_match, OSDecoderNode *node) {
+    check_expected(node);
+}
+
+RuleInfo * __wrap_OS_CheckIfRuleMatch(struct _Eventinfo *lf, EventList *last_events, 
+                                      ListNode **cdblists, RuleNode *curr_node,
+                                      regex_matching *rule_match, OSList **fts_list, 
+                                      OSHash **fts_store) {
+    return mock_type(RuleInfo *);
+}
+
 
 /* tests */
 
@@ -2615,6 +2642,286 @@ void test_w_logtest_generate_error_response_ok(void ** state) {
     assert_string_equal(retval_exp, retval);
 }
 
+// Tests w_logtest_decoding_phase
+void test_w_logtest_decoding_phase_program_name(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+
+    lf.program_name = strdup("program name test");
+    os_calloc(1, sizeof(OSDecoderNode), session.decoderlist_forpname);
+    
+    expect_value(__wrap_DecodeEvent, node, session.decoderlist_forpname);
+    w_logtest_decoding_phase(&lf, &session);
+
+    os_free(lf.program_name);
+    os_free(session.decoderlist_forpname);
+
+}
+
+void test_w_logtest_decoding_phase_no_program_name(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+
+    lf.program_name = NULL;
+    os_calloc(1, sizeof(OSDecoderNode), session.decoderlist_nopname);
+    
+    expect_value(__wrap_DecodeEvent, node, session.decoderlist_nopname);
+    w_logtest_decoding_phase(&lf, &session);
+
+    os_free(session.decoderlist_nopname);
+}
+
+// w_logtest_preprocessing_phase
+void test_w_logtest_preprocessing_phase_json_event_ok(void ** state)
+{
+    Eventinfo lf = {0};
+    cJSON request = {0};
+    
+    cJSON json_event = {0};
+    cJSON json_event_child = {0};
+    char * raw_event = strdup("{event}");
+    char * str_location = strdup("location");
+
+    lf.log = strdup("{event}");
+    
+    json_event.child = &json_event_child;
+
+
+    const int expect_retval = 0;
+    int retval;
+
+    will_return(__wrap_cJSON_GetObjectItem, &json_event);
+    will_return(__wrap_cJSON_PrintUnformatted, raw_event);
+    
+    will_return(__wrap_cJSON_GetObjectItem, (cJSON *) 1);
+    will_return(__wrap_cJSON_GetStringValue, str_location);
+
+    will_return(__wrap_OS_CleanMSG, 0);
+
+
+    retval = w_logtest_preprocessing_phase(&lf, &request);
+    
+    assert_int_equal(retval, expect_retval);
+
+
+    os_free(str_location);
+    os_free(lf.log);
+
+
+}
+
+void test_w_logtest_preprocessing_phase_json_event_fail(void ** state)
+{
+    Eventinfo * lf;
+    os_calloc(1, sizeof(Eventinfo), lf);
+
+    cJSON request = {0};
+    
+    cJSON json_event = {0};
+    cJSON json_event_child = {0};
+    char * raw_event = strdup("{event}");
+    char * str_location = strdup("location");
+    
+    json_event.child = &json_event_child;
+
+
+    const int expect_retval = -1;
+    int retval;
+
+    will_return(__wrap_cJSON_GetObjectItem, &json_event);
+    will_return(__wrap_cJSON_PrintUnformatted, raw_event);
+    
+    will_return(__wrap_cJSON_GetObjectItem, (cJSON *) 1);
+    will_return(__wrap_cJSON_GetStringValue, str_location);
+
+    will_return(__wrap_OS_CleanMSG, -1);
+
+
+    retval = w_logtest_preprocessing_phase(lf, &request);
+    
+    assert_int_equal(retval, expect_retval);
+
+    os_free(str_location);
+
+}
+
+void test_w_logtest_preprocessing_phase_str_event_ok(void ** state)
+{
+    Eventinfo * lf;
+    os_calloc(1, sizeof(Eventinfo), lf);
+
+    cJSON request = {0};
+    cJSON json_event = {0};
+    char * raw_event = strdup("event");
+    char * str_location = strdup("location");
+    
+    lf->log = strdup("test log");
+
+    const int expect_retval = 0;
+    int retval;
+
+    will_return(__wrap_cJSON_GetObjectItem, &json_event);
+    will_return(__wrap_cJSON_GetStringValue, raw_event);
+    
+    will_return(__wrap_cJSON_GetObjectItem, (cJSON *) 1);
+    will_return(__wrap_cJSON_GetStringValue, str_location);
+
+    will_return(__wrap_OS_CleanMSG, 0);
+
+
+    retval = w_logtest_preprocessing_phase(lf, &request);
+    
+    assert_int_equal(retval, expect_retval);
+
+    os_free(str_location);
+    os_free(raw_event);
+    os_free(lf->log);
+    os_free(lf);
+
+}
+
+void test_w_logtest_preprocessing_phase_str_event_fail(void ** state)
+{
+    Eventinfo * lf;
+    os_calloc(1, sizeof(Eventinfo), lf);
+
+    cJSON request = {0};
+    cJSON json_event = {0};
+    char * raw_event = strdup("event");
+    char * str_location = strdup("location");
+    
+
+
+    const int expect_retval = -1;
+    int retval;
+
+    will_return(__wrap_cJSON_GetObjectItem, &json_event);
+    will_return(__wrap_cJSON_GetStringValue, raw_event);
+    
+    will_return(__wrap_cJSON_GetObjectItem, (cJSON *) 1);
+    will_return(__wrap_cJSON_GetStringValue, str_location);
+
+    will_return(__wrap_OS_CleanMSG, -1);
+
+
+    retval = w_logtest_preprocessing_phase(lf, &request);
+    
+    assert_int_equal(retval, expect_retval);
+
+    os_free(str_location);
+    os_free(raw_event);
+
+}
+
+// w_logtest_rulesmatching_phase
+void test_w_logtest_rulesmatching_phase_no_load_rules(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = -1;
+    int retval;
+
+    session.rule_list = NULL;
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+
+
+}
+
+void test_w_logtest_rulesmatching_phase_ossec_alert(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = OSSEC_ALERT;
+    lf.generated_rule = NULL;
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+
+    os_free(session.rule_list);
+
+
+}
+
+void test_w_logtest_rulesmatching_phase_dont_match_category(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = SYSLOG;
+    lf.generated_rule = NULL;
+
+    RuleInfo ruleinfo = {0};
+    ruleinfo.category = FIREWALL;
+
+    assert_int_not_equal(ruleinfo.category, decoder_info.type);
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+    session.rule_list->ruleinfo = &ruleinfo;
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+
+    os_free(session.rule_list);
+
+
+}
+
+void test_w_logtest_rulesmatching_phase_dont_match(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = SYSLOG;
+    lf.generated_rule = NULL;
+
+    RuleInfo ruleinfo = {0};
+    ruleinfo.category = SYSLOG;
+
+    assert_int_equal(ruleinfo.category, decoder_info.type);
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+    session.rule_list->ruleinfo = &ruleinfo;
+
+    will_return(__wrap_OS_CheckIfRuleMatch, NULL);
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+
+    os_free(session.rule_list);
+
+
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -2665,19 +2972,19 @@ int main(void)
         cmocka_unit_test(test_w_logtest_get_session_active),
         cmocka_unit_test(test_w_logtest_get_session_expired_token),
         cmocka_unit_test(test_w_logtest_get_session_new),
-        // Test w_logtest_add_msg_response
+        // Tests w_logtest_add_msg_response
         cmocka_unit_test(test_w_logtest_add_msg_response_null_list),
         cmocka_unit_test(test_w_logtest_add_msg_response_new_field_msg),
         cmocka_unit_test(test_w_logtest_add_msg_response_error_msg),
         cmocka_unit_test(test_w_logtest_add_msg_response_warn_msg),
         cmocka_unit_test(test_w_logtest_add_msg_response_warn_dont_remplaze_error_msg),
         cmocka_unit_test(test_w_logtest_add_msg_response_info_msg),
-        // Test w_logtest_check_input
+        // Tests w_logtest_check_input
         cmocka_unit_test(test_w_logtest_check_input_malformed_json_long),
         cmocka_unit_test(test_w_logtest_check_input_malformed_json_short),
         cmocka_unit_test(test_w_logtest_check_input_type_remove_sesion_ok),
         cmocka_unit_test(test_w_logtest_check_input_type_request_ok),
-        // Test w_logtest_check_input_request
+        // Tests w_logtest_check_input_request
         cmocka_unit_test(test_w_logtest_check_input_request_empty_json),
         cmocka_unit_test(test_w_logtest_check_input_request_missing_location),
         cmocka_unit_test(test_w_logtest_check_input_request_missing_log_format),
@@ -2685,16 +2992,42 @@ int main(void)
         cmocka_unit_test(test_w_logtest_check_input_request_full_empty_token),
         cmocka_unit_test(test_w_logtest_check_input_request_full),
         cmocka_unit_test(test_w_logtest_check_input_request_bad_token_lenght),
-        // Test w_logtest_check_input_remove_session
+        // Tests w_logtest_check_input_remove_session
         cmocka_unit_test(test_w_logtest_check_input_remove_session_not_string),
         cmocka_unit_test(test_w_logtest_check_input_remove_session_invalid_token),
         cmocka_unit_test(test_w_logtest_check_input_remove_session_ok),
-        // // Test w_logtest_process_request
+        // Tests w_logtest_process_request
         // cmocka_unit_test(test_w_logtest_process_request_error_list),
         // cmocka_unit_test(test_w_logtest_process_request_error_check_input),
         // cmocka_unit_test(test_w_logtest_process_request_error_get_session),
-        // Test w_logtest_generate_error_response
+        // Tests w_logtest_generate_error_response
         cmocka_unit_test(test_w_logtest_generate_error_response_ok),
+        // Tests w_logtest_process_log
+        // Tests w_logtest_preprocessing_phase
+        cmocka_unit_test(test_w_logtest_preprocessing_phase_json_event_ok),
+        cmocka_unit_test(test_w_logtest_preprocessing_phase_json_event_fail),
+        cmocka_unit_test(test_w_logtest_preprocessing_phase_str_event_ok),
+        cmocka_unit_test(test_w_logtest_preprocessing_phase_str_event_fail),
+        // Tests w_logtest_decoding_phase
+        cmocka_unit_test(test_w_logtest_decoding_phase_program_name),
+        cmocka_unit_test(test_w_logtest_decoding_phase_no_program_name),
+        // Tests w_logtest_rulesmatching_phase
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_no_load_rules),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_ossec_alert),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_dont_match_category),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_dont_match),
+        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_level_0),
+        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_ignore_time_first),
+        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_ignore_time_dont_generate_alert),
+        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_ignore_time_generate_alert),
+        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_ignore_event),
+        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_and_if_matched_sid_ok),
+        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_and_if_matched_sid_fail),
+        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_and_group_prev_matched),
+
+
+
+
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
