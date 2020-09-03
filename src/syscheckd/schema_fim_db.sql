@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS registry_key (
     group_name TEXT,
     scanned INTEGER,
     options INTEGER,
+    checksum TEXT NOT NULL,
     PRIMARY KEY(path)
 );
 
