@@ -214,7 +214,7 @@ typedef struct fim_entry_data {
 
 typedef struct fim_registry_data {
     char * name;
-    char * type;
+    unsigned int type;
     // char * data;
     unsigned int size;
     os_md5 hash_md5;
@@ -241,11 +241,12 @@ typedef struct fim_registry_key {
 
     // Options
     int options;
+    unsigned int scanned;
     // path:perm:uid:user_name:gid:group_name
     os_sha1 checksum;
 
     fim_registry_data *fim_registry_data;
-} fim_registry_data;
+} fim_registry_key;
 
 typedef struct fim_entry {
     char *path;
