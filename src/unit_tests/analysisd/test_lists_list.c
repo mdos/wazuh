@@ -135,7 +135,7 @@ void test_OS_FindList_cdb_match(void ** state) {
 
 /* OS_ListLoadRules */
 void test_OS_ListLoadRules_rule_null_check(void ** state) {
-    ListNode * l_node = 1;
+    ListNode * l_node = (ListNode *) 1;
     ListRule * lrule = NULL;
 
     OS_ListLoadRules(&l_node, &lrule);

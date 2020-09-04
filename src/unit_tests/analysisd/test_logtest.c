@@ -396,6 +396,17 @@ RuleInfo * __wrap_OS_CheckIfRuleMatch(struct _Eventinfo *lf, EventList *last_eve
     return mock_type(RuleInfo *);
 }
 
+void __wrap_OS_AddEvent(Eventinfo *lf, EventList *list) {
+    return;
+}
+
+int __wrap_IGnore(Eventinfo *lf, int pos) {
+    return mock_type(int);
+}
+
+void * __wrap_OSList_AddData(OSList *list, void *data) {
+    return mock_type(void *);
+}
 
 /* tests */
 
@@ -2922,6 +2933,375 @@ void test_w_logtest_rulesmatching_phase_dont_match(void ** state)
 
 }
 
+void test_w_logtest_rulesmatching_phase_match_level_0(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = SYSLOG;
+    lf.generated_rule = NULL;
+
+    RuleInfo ruleinfo = {0};
+    ruleinfo.level = 0;
+    ruleinfo.category = SYSLOG;
+
+    assert_int_equal(ruleinfo.category, decoder_info.type);
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+    session.rule_list->ruleinfo = &ruleinfo;
+
+    will_return(__wrap_OS_CheckIfRuleMatch, &ruleinfo);
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+    assert_int_equal(lf.generated_rule->level, 0);
+    assert_ptr_equal(lf.generated_rule, &ruleinfo);
+
+    os_free(session.rule_list);
+
+}
+
+void test_w_logtest_rulesmatching_phase_match_dont_ignore_first_time(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    lf.generate_time = (time_t) 2020;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = SYSLOG;
+    lf.generated_rule = NULL;
+
+    RuleInfo ruleinfo = {0};
+    ruleinfo.level = 5;
+    ruleinfo.category = SYSLOG;
+    ruleinfo.ignore_time = 1;
+
+    assert_int_equal(ruleinfo.category, decoder_info.type);
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+    session.rule_list->ruleinfo = &ruleinfo;
+
+    will_return(__wrap_OS_CheckIfRuleMatch, &ruleinfo);
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+    assert_ptr_equal(lf.generated_rule, &ruleinfo);
+    assert_ptr_equal(lf.generated_rule->time_ignored, (time_t) 2020);
+
+    os_free(session.rule_list);
+
+}
+
+void test_w_logtest_rulesmatching_phase_match_ignore_time_ignore(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    lf.generate_time = (time_t) 2020;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = SYSLOG;
+    lf.generated_rule = NULL;
+
+    RuleInfo ruleinfo = {0};
+    ruleinfo.level = 5;
+    ruleinfo.category = SYSLOG;
+    ruleinfo.ignore_time = 10; // ignore
+    ruleinfo.time_ignored = (time_t) 2015;
+
+    assert_int_equal(ruleinfo.category, decoder_info.type);
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+    session.rule_list->ruleinfo = &ruleinfo;
+
+    will_return(__wrap_OS_CheckIfRuleMatch, &ruleinfo);
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+    assert_ptr_equal(lf.generated_rule, &ruleinfo);
+    assert_ptr_equal(lf.generated_rule->time_ignored, (time_t) 2015);
+
+    os_free(session.rule_list);
+
+}
+
+void test_w_logtest_rulesmatching_phase_match_dont_ignore_time_out_windows(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    lf.generate_time = (time_t) 2020;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = SYSLOG;
+    lf.generated_rule = NULL;
+
+    RuleInfo ruleinfo = {0};
+    ruleinfo.level = 5;
+    ruleinfo.category = SYSLOG;
+    ruleinfo.ignore_time = 3; // Dont ignore
+    ruleinfo.time_ignored = (time_t) 2015;
+
+    assert_int_equal(ruleinfo.category, decoder_info.type);
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+    session.rule_list->ruleinfo = &ruleinfo;
+
+    will_return(__wrap_OS_CheckIfRuleMatch, &ruleinfo);
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+    assert_ptr_equal(lf.generated_rule, &ruleinfo);
+    assert_ptr_equal(lf.generated_rule->time_ignored, (time_t) 0);
+
+    os_free(session.rule_list);
+
+}
+
+void test_w_logtest_rulesmatching_phase_match_ignore_event(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = SYSLOG;
+    lf.generated_rule = NULL;
+
+    RuleInfo ruleinfo = {0};
+    ruleinfo.level = 5;
+    ruleinfo.category = SYSLOG;
+    ruleinfo.ckignore = 1;
+
+    assert_int_equal(ruleinfo.category, decoder_info.type);
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+    session.rule_list->ruleinfo = &ruleinfo;
+
+    will_return(__wrap_OS_CheckIfRuleMatch, &ruleinfo);
+    will_return(__wrap_IGnore, 1);
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+    assert_null(lf.generated_rule);
+
+    os_free(session.rule_list);
+
+}
+
+void test_w_logtest_rulesmatching_phase_match_and_if_matched_sid_ok(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = SYSLOG;
+    lf.generated_rule = NULL;
+
+    RuleInfo ruleinfo = {0};
+    ruleinfo.level = 5;
+    ruleinfo.category = SYSLOG;
+    ruleinfo.ckignore = 0;
+    
+
+    OSList pre_matched_list = {0};
+    pre_matched_list.last_node = (OSListNode *) 10;
+    ruleinfo.sid_prev_matched = &pre_matched_list;
+
+    assert_int_equal(ruleinfo.category, decoder_info.type);
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+    session.rule_list->ruleinfo = &ruleinfo;
+
+    will_return(__wrap_OS_CheckIfRuleMatch, &ruleinfo);
+    will_return(__wrap_OSList_AddData, 1);
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+    assert_ptr_equal(lf.generated_rule, &ruleinfo);
+    assert_ptr_equal(lf.sid_node_to_delete, (OSListNode *) 10);
+
+    os_free(session.rule_list);
+
+}
+
+void test_w_logtest_rulesmatching_phase_match_and_if_matched_sid_fail(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = SYSLOG;
+    lf.generated_rule = NULL;
+
+    RuleInfo ruleinfo = {0};
+    ruleinfo.level = 5;
+    ruleinfo.category = SYSLOG;
+    ruleinfo.ckignore = 0;
+    
+
+    OSList pre_matched_list = {0};
+    pre_matched_list.last_node = (OSListNode *) 10;
+    ruleinfo.sid_prev_matched = &pre_matched_list;
+
+    assert_int_equal(ruleinfo.category, decoder_info.type);
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+    session.rule_list->ruleinfo = &ruleinfo;
+
+    will_return(__wrap_OS_CheckIfRuleMatch, &ruleinfo);
+    will_return(__wrap_OSList_AddData, 0);
+
+    expect_value(__wrap__os_analysisd_add_logmsg, level, LOGLEVEL_ERROR);
+    expect_value(__wrap__os_analysisd_add_logmsg, list, &list_msg);
+    expect_string(__wrap__os_analysisd_add_logmsg, formatted_msg, "Unable to add data to sig list.");
+
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+    assert_ptr_equal(lf.generated_rule, &ruleinfo);
+    assert_ptr_equal(lf.sid_node_to_delete, (OSListNode *) 0);
+
+    os_free(session.rule_list);
+
+}
+
+void test_w_logtest_rulesmatching_phase_match_and_group_prev_matched_fail(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = SYSLOG;
+    lf.generated_rule = NULL;
+
+    RuleInfo ruleinfo = {0};
+    ruleinfo.level = 5;
+    ruleinfo.category = SYSLOG;
+    ruleinfo.ckignore = 0;
+    ruleinfo.sid_prev_matched = (OSList *) 1;
+    os_calloc(1, sizeof(RuleInfo *), ruleinfo.group_prev_matched);
+
+    OSList pre_matched_list = {0};
+    pre_matched_list.last_node = (OSListNode *) 10;
+
+    assert_int_equal(ruleinfo.category, decoder_info.type);
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+    session.rule_list->ruleinfo = &ruleinfo;
+
+    will_return(__wrap_OS_CheckIfRuleMatch, &ruleinfo);
+    will_return(__wrap_OSList_AddData, 0);
+
+    expect_value(__wrap__os_analysisd_add_logmsg, level, LOGLEVEL_ERROR);
+    expect_value(__wrap__os_analysisd_add_logmsg, list, &list_msg);
+    expect_string(__wrap__os_analysisd_add_logmsg, formatted_msg, "Unable to add data to sig list.");
+
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+    assert_ptr_equal(lf.generated_rule, &ruleinfo);
+    assert_ptr_equal(lf.sid_node_to_delete, (OSListNode *) 0);
+
+    os_free(session.rule_list);
+    os_free(ruleinfo.group_prev_matched);
+
+}
+
+void test_w_logtest_rulesmatching_phase_match_and_group_prev_matched(void ** state)
+{
+    Eventinfo lf = {0};
+    w_logtest_session_t session = {0};
+    OSList list_msg = {0};
+    const int expect_retval = 0;
+    int retval;
+
+    OSDecoderInfo decoder_info = {0};
+    lf.decoder_info = &decoder_info;
+    decoder_info.type = SYSLOG;
+    lf.generated_rule = NULL;
+
+    RuleInfo ruleinfo = {0};
+    ruleinfo.level = 5;
+    ruleinfo.category = SYSLOG;
+    ruleinfo.ckignore = 0;
+    os_calloc(1, sizeof(RuleInfo *), ruleinfo.group_prev_matched);
+
+    OSList pre_matched_list = {0};
+    pre_matched_list.last_node = (OSListNode *) 10;
+    
+    ruleinfo.sid_prev_matched = &pre_matched_list;
+
+
+    assert_int_equal(ruleinfo.category, decoder_info.type);
+
+    os_calloc(1, sizeof(RuleNode), session.rule_list);
+    session.rule_list->next = NULL;
+    session.rule_list->ruleinfo = &ruleinfo;
+
+    will_return(__wrap_OS_CheckIfRuleMatch, &ruleinfo);
+    will_return(__wrap_OSList_AddData, 1);
+
+    retval = w_logtest_rulesmatching_phase(&lf, &session, &list_msg);
+
+    assert_int_equal(retval, expect_retval);
+    assert_ptr_equal(lf.generated_rule, &ruleinfo);
+    assert_ptr_equal(lf.sid_node_to_delete, (OSListNode *) 10);
+
+    os_free(session.rule_list);
+    os_free(ruleinfo.group_prev_matched);
+}
+
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -3016,14 +3396,15 @@ int main(void)
         cmocka_unit_test(test_w_logtest_rulesmatching_phase_ossec_alert),
         cmocka_unit_test(test_w_logtest_rulesmatching_phase_dont_match_category),
         cmocka_unit_test(test_w_logtest_rulesmatching_phase_dont_match),
-        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_level_0),
-        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_ignore_time_first),
-        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_ignore_time_dont_generate_alert),
-        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_ignore_time_generate_alert),
-        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_ignore_event),
-        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_and_if_matched_sid_ok),
-        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_and_if_matched_sid_fail),
-        // cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_and_group_prev_matched),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_level_0),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_dont_ignore_first_time),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_ignore_time_ignore),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_dont_ignore_time_out_windows),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_ignore_event),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_and_if_matched_sid_ok),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_and_if_matched_sid_fail),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_and_group_prev_matched),
+        cmocka_unit_test(test_w_logtest_rulesmatching_phase_match_and_group_prev_matched_fail),
 
 
 
